@@ -278,7 +278,7 @@ export function validateConfig(raw) {
     ? raw.targetCameraName.trim()
     : null;
   const targetCameraId = Number.isInteger(raw.targetCameraId) ? raw.targetCameraId : null;
-  const localClipDumpEnabled = raw.localClipDumpEnabled !== false;
+  const localClipDumpEnabled = Boolean(raw.localClipDumpEnabled);
   const alwaysOnPrebuffer = raw.alwaysOnPrebuffer !== false;
 
   return {
@@ -329,7 +329,7 @@ export function loadOrCreateConfig(stateDir = defaultStateDir(), overrides = {})
     ringRefreshToken: null,
     targetCameraName: null,
     targetCameraId: null,
-    localClipDumpEnabled: true,
+    localClipDumpEnabled: false,
     alwaysOnPrebuffer: true,
     ...existing,
     ...overrides,

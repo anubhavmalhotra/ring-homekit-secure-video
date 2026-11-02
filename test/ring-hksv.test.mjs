@@ -1259,6 +1259,7 @@ test('Real FFmpeg E2E test (when /usr/bin/ffmpeg is present): SyntheticFfmpegMed
       bindAddress: '127.0.0.1',
       ffmpegPath,
       alwaysOnPrebuffer: false,
+      localClipDumpEnabled: true,
     });
     mediaSource = new SyntheticFfmpegMediaSource({
       ffmpegPath,
