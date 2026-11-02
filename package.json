@@ -1,0 +1,26 @@
+{
+  "name": "ring-hksv-bridge",
+  "version": "1.0.0",
+  "license": "MIT",
+  "type": "module",
+  "description": "Self-hosted Ring Video Doorbell to Apple HomeKit Secure Video (HKSV / iCloud+) bridge and local fMP4 clip archiver",
+  "bin": {
+    "ring-hksv": "./src/cli.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "start": "node src/service.mjs",
+    "auth": "node src/cli.mjs auth",
+    "status": "node src/cli.mjs status",
+    "pair-info": "node src/cli.mjs pair-info",
+    "test-event": "node src/cli.mjs test-event"
+  },
+  "dependencies": {
+    "@homebridge/hap-nodejs": "^2.2.3",
+    "qrcode-terminal": "^0.12.0",
+    "ring-client-api": "^13.1.0"
+  }
+}

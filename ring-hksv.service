@@ -1,0 +1,26 @@
+[Unit]
+Description=Local Ring Doorbell to Apple HomeKit Secure Video (HKSV / iCloud+) Bridge
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=__APP_DIR__
+ExecStart=__NODE_BIN__ __APP_DIR__/src/service.mjs --state-dir __STATE_DIR__
+Environment=NODE_ENV=production
+Environment=PATH=__NODE_BIN_DIR__:/usr/local/bin:/usr/bin:/bin
+UMask=0077
+LimitCORE=0
+MemoryMax=1G
+TasksMax=128
+NoNewPrivileges=yes
+PrivateTmp=yes
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,12 @@
+node_modules/
+.DS_Store
+*.log
+*.part
+*.mp4
+config.json
+pairing.json
+status.json
+service.lock
+hap-persist/
+clips/
+SOL-REVIEW*.txt
