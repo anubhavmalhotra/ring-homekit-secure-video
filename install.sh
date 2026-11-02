@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generic rootless user-space installer for ring-hksv-bridge (Linux systemd --user).
+# Generic rootless user-space installer for ring-homekit-secure-video (Linux systemd --user).
 set -Eeuo pipefail
 umask 077
 

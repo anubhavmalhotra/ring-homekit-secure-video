@@ -1,4 +1,4 @@
-# ring-hksv-bridge
+# ring-homekit-secure-video
 
 Self-hosted **Ring Video Doorbell → Apple HomeKit Secure Video (`HKSV` / iCloud+) + Local Clip Archive** bridge.
 
@@ -138,9 +138,9 @@ Reverse-engineering the network behavior and hardware architecture of modern Rin
 
 ---
 
-### 2. Why TLS Pinning Does Not Defeat `ring-hksv-bridge` (or `ring-mqtt` / Scrypted)
+### 2. Why TLS Pinning Does Not Defeat `ring-homekit-secure-video` (or `ring-mqtt` / Scrypted)
 
-Tools like **`ring-mqtt`**, **Scrypted**, **`ring-client-api`**, and **`ring-hksv-bridge`** do **not** attempt to MITM the connection between the doorbell and Amazon (`Doorbell ↛ Fake Server`).
+Tools like **`ring-mqtt`**, **Scrypted**, **`ring-client-api`**, and **`ring-homekit-secure-video`** do **not** attempt to MITM the connection between the doorbell and Amazon (`Doorbell ↛ Fake Server`).
 
 Instead, they operate on the **client side of Ring's signaling architecture** — impersonating an authenticated **Ring Android mobile app** (`Doorbell ↔ Ring Signaling ↔ Local Bridge → Apple Home Hub → iCloud+`).
 
@@ -148,14 +148,14 @@ Crucially, **Ring's paywall only restricts cloud recording storage (`Ring Protec
 
 ---
 
-### 3. Step-by-Step Operation (How `ring-mqtt` & `ring-hksv-bridge` Capture Video Without a Ring Plan)
+### 3. Step-by-Step Operation (How `ring-mqtt` & `ring-homekit-secure-video` Capture Video Without a Ring Plan)
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant DB as Ring Doorbell (LAN)
     participant RS as Ring Signaling & FCM
-    participant BR as ring-hksv-bridge (Local Server)
+    participant BR as ring-homekit-secure-video (Local Server)
     participant FF as Local FFmpeg (127.0.0.1)
     participant HH as Apple Home Hub (HomePod / Apple TV)
     participant IC as Apple iCloud+ (HKSV)
@@ -193,10 +193,10 @@ sequenceDiagram
 2. **Step 2 — Hardware PIR Wakeup & Sub-Second Push Delivery:**
    - When someone approaches your door or presses the button, the doorbell's PIR sensor wakes the SoC and Wi-Fi radio.
    - The doorbell notifies Ring's backend over its pinned TLS channel. Even without a Ring Protect plan, Ring immediately dispatches a push notification (`com.ring.push.HANDLE_NEW_MOTION` or `com.ring.push.HANDLE_NEW_DING`) to all registered devices on your account.
-   - Your local `ring-hksv-bridge` daemon receives that push packet over its persistent `:5228` socket within ~100–300 ms.
+   - Your local `ring-homekit-secure-video` daemon receives that push packet over its persistent `:5228` socket within ~100–300 ms.
 
 3. **Step 3 — Programmatic WebRTC `live_view` Negotiation:**
-   - The instant the push packet arrives, `ring-hksv-bridge` initiates a WebRTC `live_view` call — the exact same API call the Ring smartphone app makes when you tap "Live View":
+   - The instant the push packet arrives, `ring-homekit-secure-video` initiates a WebRTC `live_view` call — the exact same API call the Ring smartphone app makes when you tap "Live View":
      - Connects to `wss://api.prod.signalling.ring.devices.a2z.com:443/ws` using a single-use signaling ticket.
      - Generates a WebRTC SDP offer (`werift` `RTCPeerConnection`) requesting `video/H264` (`90 kHz`) and `audio/opus` (`48 kHz`, 2 channels) or `PCMU`, and sends `method: "live_view"`.
      - Ring's signaling service forwards the live-view request to the already-awake doorbell and returns the SDP answer (`UDP/TLS/RTP/SAVPF`) along with ICE candidates and DTLS fingerprints.
