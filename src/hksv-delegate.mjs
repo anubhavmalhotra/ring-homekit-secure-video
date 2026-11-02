@@ -93,6 +93,23 @@ export class RingCameraMediaSource {
   startEventListeners() {
     this.stopEventListeners();
     if (this.destroyed) return;
+    if (this.camera.onNewNotification) {
+      this.subscriptions.push(
+        this.camera.onNewNotification.subscribe((notification) => {
+          const category = notification?.android_config?.category || '';
+          const subtype = notification?.data?.event?.ding?.subtype || '';
+          if (category === 'com.ring.pn.live-event.ding' || subtype === 'ding') {
+            this.onEvent?.({ type: 'ding', ding: notification, at: Date.now() });
+          } else if (
+            category === 'com.ring.pn.live-event.motion' ||
+            category.startsWith('com.ring.pn.live-event.')
+          ) {
+            this.onEvent?.({ type: 'motion', motion: true, notification, at: Date.now() });
+          }
+        }),
+      );
+      return;
+    }
     if (this.camera.onDoorbellPressed) {
       this.subscriptions.push(
         this.camera.onDoorbellPressed.subscribe((ding) => {
@@ -1432,6 +1449,7 @@ export class RingHksvDoorbell {
         // Non-fatal if return audio fails; keep live video/audio active
       }
     }
+    this.#emitStatus();
   }
 
   async #reconfigureLiveStream(sessionInfo, reconfRequest) {
@@ -1507,6 +1525,7 @@ export class RingHksvDoorbell {
     try {
       sessionInfo.returnAudioSocket?.close();
     } catch {}
+    this.#emitStatus();
   }
 
   #emitStatus() {

@@ -11,7 +11,10 @@ import {
   writeJsonAtomic,
 } from './config.mjs';
 import { RingCameraMediaSource, RingHksvDoorbell } from './hksv-delegate.mjs';
+import { installPushReceiverDecryptPatch } from './media-pipeline.mjs';
 import { SyntheticFfmpegMediaSource } from './synthetic-source.mjs';
+
+installPushReceiverDecryptPatch();
 
 export function selectRingCamera(cameras, config) {
   if (!Array.isArray(cameras) || cameras.length === 0) {

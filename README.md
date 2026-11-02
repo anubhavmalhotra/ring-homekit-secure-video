@@ -36,8 +36,8 @@ Replaces a paid Ring Protect cloud recording subscription by bridging Ring doorb
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/anubhavmalhotra/ring-hksv-bridge.git
-cd ring-hksv-bridge
+git clone https://github.com/anubhavmalhotra/ring-homekit-secure-video.git
+cd ring-homekit-secure-video
 chmod +x install.sh
 ./install.sh
 ```

@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import dgram from 'node:dgram';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { concatMap, map, mergeWith, take } from 'rxjs/operators';
 import { encodeSrtpOptions } from '@homebridge/camera-utils';
@@ -50,7 +51,7 @@ export function mapH264Level(levelEnum) {
 
 /**
  * Rewrites Ring SDP media sections so connection addresses are strictly `127.0.0.1`
- * for use with FFmpeg's `-localaddr 127.0.0.1 -sdp_flags filter_src`.
+ * for use with FFmpeg's `-localaddr 127.0.0.1`.
  */
 export function cleanRingSdp(sdp, includeVideo = true) {
   const mediaSections = String(sdp || '')
@@ -1634,3 +1635,72 @@ export class LocalClipRecorder {
     }
   }
 }
+
+const cjsRequire = createRequire(import.meta.url);
+
+export function decodeBase64OrUrl(input) {
+  if (Buffer.isBuffer(input)) return input;
+  const normalized = String(input || '')
+    .trim()
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  return Buffer.from(normalized, 'base64');
+}
+
+export function extractWebPushHeaderParam(headerValue, paramName, fallbackSliceLen) {
+  const raw = String(headerValue || '');
+  const re = new RegExp(`(?:^|[;,\\s])${paramName}=([^;,\\s]+)`, 'i');
+  const match = raw.match(re);
+  if (match && match[1]) {
+    return match[1].replace(/^"(.*)"$/, '$1');
+  }
+  return raw.slice(fallbackSliceLen).split(/[;,\s]/)[0];
+}
+
+/**
+ * Patches `@eneris/push-receiver/dist/utils/decrypt.js` so multi-parameter WebPush
+ * `crypto-key` headers from Ring FCM (`dh=...; p256ecdsa=...`) and base64/base64url
+ * `encryption` (`salt=...==`) headers do not fail with `ERR_CRYPTO_ECDH_INVALID_PUBLIC_KEY`
+ * on Node.js 20/22 + OpenSSL 3.
+ */
+export function installPushReceiverDecryptPatch() {
+  try {
+    const decryptModule = cjsRequire('@eneris/push-receiver/dist/utils/decrypt.js');
+    const httpEce = cjsRequire('http_ece');
+    if (!decryptModule || typeof decryptModule !== 'object') {
+      return false;
+    }
+    const patchedDecrypt = function patchedPushReceiverDecrypt(object, keys) {
+      const cryptoKey = object?.appData?.find((item) => item.key === 'crypto-key');
+      if (!cryptoKey) {
+        throw new Error('crypto-key is missing');
+      }
+      const salt = object?.appData?.find((item) => item.key === 'encryption');
+      if (!salt) {
+        throw new Error('salt is missing');
+      }
+
+      const dhRaw = extractWebPushHeaderParam(cryptoKey.value, 'dh', 3);
+      const saltRaw = extractWebPushHeaderParam(salt.value, 'salt', 5);
+
+      const dh = crypto.createECDH('prime256v1');
+      dh.setPrivateKey(decodeBase64OrUrl(keys.privateKey));
+
+      const decrypted = httpEce.decrypt(object.rawData, {
+        version: 'aesgcm',
+        authSecret: decodeBase64OrUrl(keys.authSecret),
+        dh: decodeBase64OrUrl(dhRaw),
+        privateKey: dh,
+        salt: decodeBase64OrUrl(saltRaw),
+      });
+      return JSON.parse(decrypted.toString('utf8'));
+    };
+    decryptModule.default = patchedDecrypt;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+installPushReceiverDecryptPatch();
+

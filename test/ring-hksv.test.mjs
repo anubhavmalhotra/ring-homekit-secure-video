@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -1122,7 +1123,7 @@ test('SpawnedFfmpeg safely handles missing binary ENOENT, parseCliArgs parses --
   assert.equal(videoRtp.observed, false);
 });
 
-test('selectRingCamera prioritizes configured ID/name and doorbots', () => {
+test('selectRingCamera prioritizes configured ID/name and doorbots, and patched push-receiver decrypt handles Ring multi-param crypto-key headers', () => {
   const cams = [
     { id: 10, name: 'Backyard Floodlight', isDoorbot: false },
     { id: 20, name: 'Front Door', isDoorbot: true },
@@ -1130,6 +1131,74 @@ test('selectRingCamera prioritizes configured ID/name and doorbots', () => {
   assert.equal(selectRingCamera(cams, { targetCameraId: null, targetCameraName: null }).id, 20);
   assert.equal(selectRingCamera(cams, { targetCameraId: 10, targetCameraName: null }).id, 10);
   assert.equal(selectRingCamera(cams, { targetCameraId: null, targetCameraName: 'backyard floodlight' }).id, 10);
+
+  // Verify patched @eneris/push-receiver decrypt handles Ring FCM `dh=...; p256ecdsa=...` and `salt=...==`
+  const cjsRequire = createRequire(import.meta.url);
+  const httpEce = cjsRequire('http_ece');
+  const decryptMod = cjsRequire('@eneris/push-receiver/dist/utils/decrypt.js');
+
+  const receiverCurve = crypto.createECDH('prime256v1');
+  receiverCurve.generateKeys();
+  const senderCurve = crypto.createECDH('prime256v1');
+  senderCurve.generateKeys();
+  const vapidCurve = crypto.createECDH('prime256v1');
+  vapidCurve.generateKeys();
+  const authSecret = crypto.randomBytes(16);
+  const salt = crypto.randomBytes(16);
+
+  const payload = {
+    version: '2.0.0',
+    android_config: { category: 'com.ring.pn.live-event.motion' },
+    data: { event: { ding: { id: '123456', subtype: 'human' } } },
+  };
+  const encrypted = httpEce.encrypt(Buffer.from(JSON.stringify(payload), 'utf8'), {
+    version: 'aesgcm',
+    privateKey: senderCurve,
+    dh: receiverCurve.getPublicKey(),
+    authSecret,
+    salt,
+  });
+
+  const fcmObject = {
+    rawData: encrypted,
+    appData: [
+      {
+        key: 'crypto-key',
+        value: `dh=${senderCurve.getPublicKey('base64url')}; p256ecdsa=${vapidCurve.getPublicKey('base64url')}`,
+      },
+      {
+        key: 'encryption',
+        value: `salt=${salt.toString('base64')}`,
+      },
+    ],
+  };
+
+  const decrypted = decryptMod.default(fcmObject, {
+    privateKey: receiverCurve.getPrivateKey('base64url'),
+    publicKey: receiverCurve.getPublicKey('base64url'),
+    authSecret: authSecret.toString('base64url'),
+  });
+  assert.deepEqual(decrypted, payload);
+
+  // Verify RingCameraMediaSource.startEventListeners forwards every onNewNotification push event
+  const onNewNotification = new Subject();
+  const receivedEvents = [];
+  const source = new RingCameraMediaSource(
+    { name: 'Front Door', model: 'Doorbell 2', onNewNotification },
+    { onEvent: (ev) => receivedEvents.push(ev) },
+  );
+  source.startEventListeners();
+  onNewNotification.next(payload);
+  onNewNotification.next(payload);
+  onNewNotification.next({
+    android_config: { category: 'com.ring.pn.live-event.ding' },
+    data: { event: { ding: { id: '789', subtype: 'ding' } } },
+  });
+  assert.equal(receivedEvents.length, 3);
+  assert.equal(receivedEvents[0].type, 'motion');
+  assert.equal(receivedEvents[1].type, 'motion');
+  assert.equal(receivedEvents[2].type, 'ding');
+  source.destroy();
 });
 
 function verifyMp4DecodesWithFfmpeg(ffmpegPath, mp4BufferOrPath, { timeoutMs = 6000 } = {}) {

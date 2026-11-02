@@ -1,5 +1,5 @@
 {
-  "name": "ring-hksv-bridge",
+  "name": "ring-homekit-secure-video",
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
@@ -16,7 +16,7 @@
     "auth": "node src/cli.mjs auth",
     "status": "node src/cli.mjs status",
     "pair-info": "node src/cli.mjs pair-info",
-    "test-event": "node src/cli.mjs test-event"
+    "simulate-event": "node src/cli.mjs simulate-event"
   },
   "dependencies": {
     "@homebridge/hap-nodejs": "^2.2.3",
