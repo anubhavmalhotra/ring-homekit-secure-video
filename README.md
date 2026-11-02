@@ -1,5 +1,7 @@
 # ring-homekit-secure-video
 
+> **The story behind it:** [Bringing our Ring doorbell into the Apple Home app](https://anubhavmalhotra.com/vibing/ring-homekit-secure-video/)
+
 Self-hosted **Ring Video Doorbell → Apple HomeKit Secure Video (`HKSV` / iCloud+)** bridge, with an optional local clip archive.
 
 Replaces a paid Ring Protect cloud recording subscription by bridging Ring doorbell/camera push events and live WebRTC/RTP media directly to:
