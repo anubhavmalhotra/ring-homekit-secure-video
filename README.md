@@ -1,10 +1,10 @@
 # ring-homekit-secure-video
 
-Self-hosted **Ring Video Doorbell → Apple HomeKit Secure Video (`HKSV` / iCloud+) + Local Clip Archive** bridge.
+Self-hosted **Ring Video Doorbell → Apple HomeKit Secure Video (`HKSV` / iCloud+)** bridge, with an optional local clip archive.
 
 Replaces a paid Ring Protect cloud recording subscription by bridging Ring doorbell/camera push events and live WebRTC/RTP media directly to:
 1. **Apple HomeKit Secure Video (`HKSV` / iCloud+)** — Your Apple Home Hub (HomePod / Apple TV) receives fragmented MP4 (`fMP4`) streams over HomeKit DataStream (`HDS`), performs local on-device AI detection (people, faces, animals, vehicles, packages), and uploads end-to-end encrypted clips to iCloud+ without counting against your iCloud storage quota.
-2. **Local MP4 Clip Archive** — Simultaneously saves timestamped, crash-safe `.mp4` clips (`H.264` + `AAC-LC`) to your local disk with automatic age and storage-cap pruning.
+2. **Optional Local MP4 Clip Archive** (off by default) — When `localClipDumpEnabled` is `true`, also saves timestamped, crash-safe `.mp4` clips (`H.264` + `AAC-LC`) to your local disk with automatic age and storage-cap pruning.
 3. **Apple Home Live View & Two-Way Audio** — Full RFC 3711 SRTP/SRTCP (`AES_CM_128_HMAC_SHA1_80`) Live View streaming, Opus `48 kHz` → `16/24 kHz` RTP/RTCP timestamp scaling, seamless `RECONFIGURE` across encoder changes, and authenticated two-way talkback.
 
 ---
@@ -82,7 +82,7 @@ Configuration is stored in `~/.local/share/ring-hksv/config.json` (override the 
 | `bindAddress` | Auto-detected LAN IPv4 | Local interface IPv4 address for HomeKit mDNS & HAP server |
 | `hapPort` | `21065` | TCP port for the HomeKit accessory server |
 | `alwaysOnPrebuffer` | `true` | Maintain a continuous 4s prebuffer when HKSV is active (`set to false` for battery-powered doorbells) |
-| `localClipDumpEnabled` | `true` | Save every motion/doorbell clip to `<stateDir>/clips/*.mp4` |
+| `localClipDumpEnabled` | `false` | Also save every motion/doorbell clip to `<stateDir>/clips/*.mp4` (by default clips only go to iCloud+ via HKSV) |
 | `eventDurationSeconds` | `25` | Hold duration (seconds) after motion/ding trigger |
 | `clipRetentionDays` | `10` | Maximum age (days) for local `.mp4` clips |
 | `maxClipsTotalBytes` | `5368709120` (5 GiB) | Maximum total disk usage for local `.mp4` clips |
@@ -144,7 +144,7 @@ Tools like **`ring-mqtt`**, **Scrypted**, **`ring-client-api`**, and **`ring-hom
 
 Instead, they operate on the **client side of Ring's signaling architecture** — impersonating an authenticated **Ring Android mobile app** (`Doorbell ↔ Ring Signaling ↔ Local Bridge → Apple Home Hub → iCloud+`).
 
-Crucially, **Ring's paywall only restricts cloud recording storage (`Ring Protect`)**. Real-time push notifications (motion and doorbell press alerts) and on-demand **Live View** WebRTC streaming are **free baseline hardware features** that work without any subscription. By instantaneously turning every free push notification into a programmatic Live View stream, the local bridge captures the live audio/video feed in real time and hands it to your Apple Home Hub (`HomeKit Secure Video` / iCloud+) and local disk.
+Crucially, **Ring's paywall only restricts cloud recording storage (`Ring Protect`)**. Real-time push notifications (motion and doorbell press alerts) and on-demand **Live View** WebRTC streaming are **free baseline hardware features** that work without any subscription. By instantaneously turning every free push notification into a programmatic Live View stream, the local bridge captures the live audio/video feed in real time and hands it to your Apple Home Hub (`HomeKit Secure Video` / iCloud+), and to local disk if the optional clip archive is enabled.
 
 ---
 
