@@ -1696,6 +1696,59 @@ export function installPushReceiverDecryptPatch() {
       return JSON.parse(decrypted.toString('utf8'));
     };
     decryptModule.default = patchedDecrypt;
+
+    // Also patch PushReceiver + RingApi.prototype.disconnect so api.disconnect() destroys
+    // the underlying PushReceiver TLS socket (mtalk.google.com:5228) and heartbeat timers.
+    try {
+      const clientMod = cjsRequire('@eneris/push-receiver/dist/client.js');
+      const ringApiMod = cjsRequire('ring-client-api');
+      const PushReceiverProto = clientMod?.PushReceiver?.prototype;
+      const RingApiProto = ringApiMod?.RingApi?.prototype;
+
+      if (PushReceiverProto && RingApiProto && !RingApiProto._pushReceiverDisconnectPatched) {
+        let currentRegisteringApi = null;
+        const origOnCreds = PushReceiverProto.onCredentialsChanged;
+        if (typeof origOnCreds === 'function') {
+          PushReceiverProto.onCredentialsChanged = function (...args) {
+            if (currentRegisteringApi) {
+              if (!currentRegisteringApi._pushReceivers) {
+                currentRegisteringApi._pushReceivers = new Set();
+              }
+              currentRegisteringApi._pushReceivers.add(this);
+            }
+            return origOnCreds.apply(this, args);
+          };
+        }
+        const origReg = RingApiProto.registerPushReceiver;
+        if (typeof origReg === 'function') {
+          RingApiProto.registerPushReceiver = function (...args) {
+            const prev = currentRegisteringApi;
+            currentRegisteringApi = this;
+            try {
+              return origReg.apply(this, args);
+            } finally {
+              currentRegisteringApi = prev;
+            }
+          };
+        }
+        const origDisconnect = RingApiProto.disconnect;
+        if (typeof origDisconnect === 'function') {
+          RingApiProto.disconnect = function (...args) {
+            if (this._pushReceivers) {
+              for (const pr of this._pushReceivers) {
+                try {
+                  pr.destroy?.();
+                } catch {}
+              }
+              this._pushReceivers.clear();
+            }
+            return origDisconnect.apply(this, args);
+          };
+        }
+        RingApiProto._pushReceiverDisconnectPatched = true;
+      }
+    } catch {}
+
     return true;
   } catch {
     return false;

@@ -11,8 +11,10 @@ import {
   resolvePaths,
   updateRefreshToken,
 } from './config.mjs';
-import { withTimeoutAndAbort } from './media-pipeline.mjs';
+import { installPushReceiverDecryptPatch, withTimeoutAndAbort } from './media-pipeline.mjs';
 import { selectRingCamera } from './service.mjs';
+
+installPushReceiverDecryptPatch();
 
 export function parseCliArgs(args = []) {
   let stateDir = defaultStateDir();
@@ -389,8 +391,12 @@ export async function main(argv = process.argv.slice(2)) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((err) => {
-    console.error(`Error: ${err.message}`);
-    process.exit(1);
-  });
+  main()
+    .then(() => {
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error(`Error: ${err.message}`);
+      process.exit(1);
+    });
 }
